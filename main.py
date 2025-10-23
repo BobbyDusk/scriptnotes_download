@@ -11,6 +11,7 @@ ROOT_DOWNLOADS_PATH = os.path.join(os.path.dirname(__file__), "downloads")
 AUDIO_DOWNLOADS_PATH = os.path.join(ROOT_DOWNLOADS_PATH, "audio")
 HTML_DOWNLOADS_PATH = os.path.join(ROOT_DOWNLOADS_PATH, "html")
 SLOW_MO = 200
+FEED="scriptnotes-seasons-1-2"
 
 
 page = None
@@ -134,7 +135,8 @@ def main():
         )  # slow_mo adds delays
 
         page = browser.new_page()
-        for page_number in range(27, 45):
+        for page_number in range(45, 46):
+            #page.goto(f"https://scriptnotes.supportingcast.fm/listen?feed={FEED}&page={page_number}", wait_until="networkidle")
             page.goto(f"https://scriptnotes.supportingcast.fm/listen?page={page_number}", wait_until="networkidle")
             process_list_page()
             
