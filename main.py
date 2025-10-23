@@ -27,8 +27,9 @@ def copy_string_to_clipboard(s: str):
     subprocess.run(["xclip", "-selection", "clipboard"], input=s.encode(), check=True)
 
 
-def remove_downloads():
-    shutil.rmtree(ROOT_DOWNLOADS_PATH, ignore_errors=True)
+def setup_downloads(remove_old=False):
+    if remove_old:
+        shutil.rmtree(ROOT_DOWNLOADS_PATH, ignore_errors=True)
     os.makedirs(ROOT_DOWNLOADS_PATH)
     os.makedirs(AUDIO_DOWNLOADS_PATH)
     os.makedirs(HTML_DOWNLOADS_PATH)
@@ -104,7 +105,7 @@ def main():
     global current_download_folder
     print("Starting Playwright script...")
     print("Removing old downloads...")
-    #remove_downloads()
+    setup_downloads()
     with sync_playwright() as p:
         browser = p.chromium.launch_persistent_context(
             user_data_dir=USER_DATA_PATH,
