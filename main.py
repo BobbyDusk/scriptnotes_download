@@ -10,7 +10,7 @@ USER_DATA_PATH = os.path.join(os.path.dirname(__file__), "browser_data")
 ROOT_DOWNLOADS_PATH = os.path.join(os.path.dirname(__file__), "downloads")
 AUDIO_DOWNLOADS_PATH = os.path.join(ROOT_DOWNLOADS_PATH, "audio")
 HTML_DOWNLOADS_PATH = os.path.join(ROOT_DOWNLOADS_PATH, "html")
-SLOW_MO = 50
+SLOW_MO = 200
 
 
 page = None
@@ -30,57 +30,76 @@ def copy_string_to_clipboard(s: str):
 def setup_downloads(remove_old=False):
     if remove_old:
         shutil.rmtree(ROOT_DOWNLOADS_PATH, ignore_errors=True)
-    os.makedirs(ROOT_DOWNLOADS_PATH)
-    os.makedirs(AUDIO_DOWNLOADS_PATH)
-    os.makedirs(HTML_DOWNLOADS_PATH)
+    if not os.path.exists(ROOT_DOWNLOADS_PATH):
+        os.makedirs(ROOT_DOWNLOADS_PATH)
+    if not os.path.exists(AUDIO_DOWNLOADS_PATH):
+        os.makedirs(AUDIO_DOWNLOADS_PATH)
+    if not os.path.exists(HTML_DOWNLOADS_PATH):
+        os.makedirs(HTML_DOWNLOADS_PATH)
 
 
 def save_page_as_html(filename=None):
-    global page
-    if filename is None:
-        # Generate filename from current URL
-        current_url = page.url
-        filename = current_url.split("/")[-1] or "page"
+    retried = False
+    try:
+        global page
+        if filename is None:
+            # Generate filename from current URL
+            current_url = page.url
+            filename = current_url.split("/")[-1] or "page"
     
-    # Get the complete HTML content
-    html_content = page.content()
+        # Get the complete HTML content
+        html_content = page.content()
     
-    # Save to HTML downloads folder
-    html_file_path = os.path.join(HTML_DOWNLOADS_PATH, filename + ".html")
-    with open(html_file_path, 'w', encoding='utf-8') as f:
-        f.write(html_content)
+        # Save to HTML downloads folder
+        html_file_path = os.path.join(HTML_DOWNLOADS_PATH, filename + ".html")
+        with open(html_file_path, 'w', encoding='utf-8') as f:
+            f.write(html_content)
     
-    print(f"Page saved as: {html_file_path}")
-    return html_file_path
+        print(f"Page saved as: {html_file_path}")
+        return html_file_path
+    except Exception as e:
+        print(f"Error saving page as HTML: {e}")
+        if not retried:
+            retried = True
+            print("Retrying save...")
+            return save_page_as_html(filename)
 
 
 def save_audio_from_page():
-    global page
-    title = page.url.split("/")[-1]
-    player_section = page.locator(".listen-episode-player")
-    play_button = player_section.locator(".play_button")
-    play_button.click()
-    secondary_buttons = player_section.locator(".player_secondary_buttons")
-    download_button = secondary_buttons.locator("a")
-    num_tries = 50
-    current_try = 0
-    while True:
-        with page.expect_download() as download_info:
-            download_button.click()
-        download = download_info.value
-        if download.suggested_filename.endswith(".mp3"):
-            file_path = os.path.join(AUDIO_DOWNLOADS_PATH, title + ".mp3")
-            download.save_as(file_path)
-            print(f"Audio saved as: {file_path}")
-            break
-        else:
-            wait_time = 6
-            print(f"Unexpected file type downloaded: {download.suggested_filename}. Retrying in {wait_time} seconds...")
-            time.sleep(wait_time)
-            current_try += 1
-        if current_try >= num_tries:
-            print(f"Max retries reached for {download.suggested_filename}. Giving up.")
-            break
+    retried = False
+    try:
+        global page
+        title = page.url.split("/")[-1]
+        player_section = page.locator(".listen-episode-player")
+        play_button = player_section.locator(".play_button")
+        play_button.click()
+        secondary_buttons = player_section.locator(".player_secondary_buttons")
+        download_button = secondary_buttons.locator("a")
+        num_tries = 50
+        current_try = 0
+        while True:
+            with page.expect_download() as download_info:
+                download_button.click()
+            download = download_info.value
+            if download.suggested_filename.endswith(".mp3"):
+                file_path = os.path.join(AUDIO_DOWNLOADS_PATH, title + ".mp3")
+                download.save_as(file_path)
+                print(f"Audio saved as: {file_path}")
+                break
+            else:
+                wait_time = 6
+                print(f"Unexpected file type downloaded: {download.suggested_filename}. Retrying in {wait_time} seconds...")
+                time.sleep(wait_time)
+                current_try += 1
+            if current_try >= num_tries:
+                print(f"Max retries reached for {download.suggested_filename}. Giving up.")
+                break
+    except Exception as e:
+        print(f"Error downloading audio: {e}")
+        if not retried:
+            retried = True
+            print("Retrying download...")
+            save_audio_from_page()
 
 
 def process_episode_page():
@@ -105,7 +124,7 @@ def main():
     global current_download_folder
     print("Starting Playwright script...")
     print("Removing old downloads...")
-    setup_downloads()
+    setup_downloads(True)
     with sync_playwright() as p:
         browser = p.chromium.launch_persistent_context(
             user_data_dir=USER_DATA_PATH,
@@ -115,8 +134,8 @@ def main():
         )  # slow_mo adds delays
 
         page = browser.new_page()
-        for page_number in range(1, 45):
-            page.goto(f"https://scriptnotes.supportingcast.fm/listen?page={page_number}")
+        for page_number in range(27, 45):
+            page.goto(f"https://scriptnotes.supportingcast.fm/listen?page={page_number}", wait_until="networkidle")
             process_list_page()
             
         browser.close()
