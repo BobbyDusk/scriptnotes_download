@@ -1,5 +1,5 @@
 run:
 	uv run main.py
 
-clear-downlaods:
+clear-downloads:
 	cd downloads && rm -rf *

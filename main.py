@@ -4,6 +4,7 @@ import subprocess
 import time
 import shutil
 import datetime
+import requests
 
 LOCATOR_TO_FIND_EMAILS = '[data-focusable-row="true"]'
 USER_DATA_PATH = os.path.join(os.path.dirname(__file__), "browser_data")
@@ -72,29 +73,16 @@ def save_audio_from_page():
         global page
         title = page.url.split("/")[-1]
         player_section = page.locator(".listen-episode-player")
-        play_button = player_section.locator(".play_button")
-        play_button.click()
         secondary_buttons = player_section.locator(".player_secondary_buttons")
         download_button = secondary_buttons.locator("a")
-        num_tries = 50
-        current_try = 0
-        while True:
-            with page.expect_download() as download_info:
-                download_button.click()
-            download = download_info.value
-            if download.suggested_filename.endswith(".mp3"):
-                file_path = os.path.join(AUDIO_DOWNLOADS_PATH, title + ".mp3")
-                download.save_as(file_path)
-                print(f"Audio saved as: {file_path}")
-                break
-            else:
-                wait_time = 6
-                print(f"Unexpected file type downloaded: {download.suggested_filename}. Retrying in {wait_time} seconds...")
-                time.sleep(wait_time)
-                current_try += 1
-            if current_try >= num_tries:
-                print(f"Max retries reached for {download.suggested_filename}. Giving up.")
-                break
+        url_link = download_button.get_attribute("href")
+        response = requests.head(url_link)
+        file_path = os.path.join(AUDIO_DOWNLOADS_PATH, title + ".mp3")
+        response.raise_for_status()
+        with open(file_path, 'wb') as f:
+            f.write(requests.get(url_link).content)
+            print(f"Audio saved as: {file_path}")
+
     except Exception as e:
         print(f"Error downloading audio: {e}")
         if not retried:
@@ -135,9 +123,11 @@ def main():
         )  # slow_mo adds delays
 
         page = browser.new_page()
-        for page_number in range(45, 46):
+        for page_number in range(1):
             #page.goto(f"https://scriptnotes.supportingcast.fm/listen?feed={FEED}&page={page_number}", wait_until="networkidle")
-            page.goto(f"https://scriptnotes.supportingcast.fm/listen?page={page_number}", wait_until="networkidle")
+            url = f"https://scriptnotes.supportingcast.fm/listen?page={page_number}"
+            print(f"Processing list: {url}")
+            page.goto(url, wait_until="networkidle")
             process_list_page()
             
         browser.close()
