@@ -72,10 +72,10 @@ def save_audio_from_page():
     try:
         global page
         title = page.url.split("/")[-1]
-        player_section = page.locator(".listen-episode-player")
-        secondary_buttons = player_section.locator(".player_secondary_buttons")
-        download_button = secondary_buttons.locator("a")
-        url_link = download_button.get_attribute("href")
+        description = page.locator(".listen-episode-description")
+        line_with_url = description.locator('p', has_text="You can download the episode").last
+        url = line_with_url.locator('a')
+        url_link = url.get_attribute("href")
         response = requests.head(url_link)
         file_path = os.path.join(AUDIO_DOWNLOADS_PATH, title + ".mp3")
         response.raise_for_status()
