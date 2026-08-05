@@ -72,10 +72,25 @@ def save_audio_from_page():
     try:
         global page
         title = page.url.split("/")[-1]
-        description = page.locator(".listen-episode-description")
-        line_with_url = description.locator('p', has_text="You can download the episode").last
-        url = line_with_url.locator('a')
-        url_link = url.get_attribute("href")
+        
+        # Wait for the audio element to be attached (it's hidden, so use state="attached")
+        page.wait_for_selector("audio", state="attached", timeout=10000)
+        
+        # Extract audio URL from the <audio> element's src attribute
+        audio_element = page.locator("audio")
+        url_link = audio_element.get_attribute("src")
+        
+        if not url_link:
+            # Fallback: try to find the download link in the description
+            description = page.locator(".listen-episode-description")
+            download_link = description.locator("a", has_text="Download the full episode")
+            if download_link.count() > 0:
+                url_link = download_link.first.get_attribute("href")
+        
+        if not url_link:
+            raise ValueError("Could not find audio URL on the page")
+        
+        print(f"Found audio URL: {url_link}")
         response = requests.head(url_link)
         file_path = os.path.join(AUDIO_DOWNLOADS_PATH, title + ".mp3")
         response.raise_for_status()
